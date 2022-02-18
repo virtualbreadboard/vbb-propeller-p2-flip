@@ -1,0 +1,111 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "compileP2",
+            "type": "shell",
+    		  "osx": {
+                "command": "flexspin.mac",
+    		  },
+    		  "windows": {
+                "command": "flexspin.exe",
+    		  },
+    		  "linux": {
+                "command": "flexspin",
+    		  },
+            "args": [
+                "-2",
+                "-Wabs-paths",
+                "-Wmax-errors=99",
+                "${fileBasename}"
+            ],
+            "problemMatcher": {
+                "owner": "Spin2",
+                "fileLocation": ["autoDetect", "${workspaceFolder}/src"],
+                "pattern": {
+                    "regexp": "^(.*):(\\d+):\\s+(warning|error):\\s+(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "severity": 3,
+                    "message": 4
+                }
+            },
+            "presentation": {
+                "panel": "new",
+                "focus": true
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "compileTopP2",
+            "type": "shell",
+            "osx": {
+                "command": "flexspin.mac",
+            },
+            "windows": {
+                "command": "flexspin.exe",
+            },
+            "linux": {
+                "command": "flexspin",
+            },
+            "args": [
+                "-2",
+                "-Wabs-paths",
+                "-Wmax-errors=99",
+                "${config:topLevel}.spin2"
+            ],
+            "problemMatcher": {
+                "owner": "Spin2",
+                "fileLocation": ["autoDetect", "${workspaceFolder}"],
+                "pattern": {
+                    "regexp": "^(.*):(\\d+):\\s+(warning|error):\\s+(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "severity": 3,
+                    "message": 4
+                }
+            },
+            "presentation": {
+                "panel": "new",
+                "focus": true
+            },
+        },
+        {
+            "label": "downloadP2",
+            "type": "shell",
+            "args": [
+                "-b230400",
+                "${config:topLevel}.binary",
+                "-t"
+            ],
+            "osx": {
+                "command": "loadp2.mac",
+            },
+            "windows": {
+                "command": "loadp2.exe",
+            },
+            "linux": {
+                "command": "loadp2",
+                "args": [
+                    "-b230400",
+                    "${config:topLevel}.binary",
+                    "-t",
+                    "-p/dev/ttyUSB0"
+                ],
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "new",
+                "focus": true
+            },
+            "dependsOn": [
+                "compileTopP2"
+            ]
+        }
+    ]
+}

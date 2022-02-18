@@ -1,0 +1,21 @@
+
+con { timing }
+  _xtlfreq = 25_000_000
+
+  CLK_FREQ = 200_000_000                                        ' system freq as a constant
+  MS_001   = CLK_FREQ / 1_000                                   ' ticks in 1ms
+  US_001   = CLK_FREQ / 1_000_000                               ' ticks in 1us
+
+  BR_TERM  = 230_400                                            ' terminal baud rate
+
+  _clkfreq = CLK_FREQ                                           ' set system clock
+ 
+
+obj
+
+' Un commment the example to run
+  runner : "MAX7219/DisplayBanner"      '   max7219 interface
+  
+pub main() 
+  runner.main()
+   
