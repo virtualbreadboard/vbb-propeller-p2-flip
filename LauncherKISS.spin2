@@ -9,13 +9,27 @@ con { timing }
   BR_TERM  = 230_400                                            ' terminal baud rate
 
   _clkfreq = CLK_FREQ                                           ' set system clock
- 
-
+  
 obj
 
-' Un commment the example to run
-  runner : "MAX7219/DisplayBanner"      '   max7219 interface
-  
+' Un commment the example to run then press 
+'- F8 to build
+'- F10 build and load RAM
+'- F11 build and load FLASH
+
+  'runner : "Minimal" 
+  'runner : "MAX7219/BannerScroll"       
+  'runner : "MAX7219/Counter"       
+  'runner : "MAX7219/Timer"     
+  runner : "HD44780/HelloWorld"  
+  'runner : "WS2812/04_rgbx_pixel_demo"  
+  'runner : "DS3231/RealTimeClock"  
+  'runner : "SBUS/SBUSServoSweep"  
+  'runner : "SBUS/SBUS_VBBTX_P2RX"  
+  'runner : "DSO/ServoSweep"  
+  'runner : "DSO/TriggerSignal"  
+  'runner : "Analog/DAC"  
+  'runner : "Serial/Echo" 
+
 pub main() 
   runner.main()
-   

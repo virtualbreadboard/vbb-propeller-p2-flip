@@ -1,0 +1,64 @@
+con
+  RS = 16                   
+  RW = 17                    
+  E  = 18
+
+  DB4 = 11
+  DB5 = 10
+  DB6 = 9
+  DB7 = 8
+
+OBJ
+  LCD : "../Library/LCD_HD44780_16x2_4Bit"
+
+VAR
+  long COUNTER
+
+pub main()
+  LCD.START(RS,RW,E,DB4,DB5,DB6,DB7)
+
+  LCD.CLEAR
+  LCD.STR(STRING("REAL PROPELLER 2"))
+  LCD.MOVE(1,2)
+  LCD.STR(STRING("  VIRTUAL LCD!  "))
+  waitms(1000) 
+
+  repeat COUNTER from 0 to 10
+    LCD.CLEAR
+    LCD.DEC (COUNTER)
+    waitms(200) 
+
+  LCD.CLEAR()
+  LCD.MOVE(3,1)
+  LCD.STR(STRING("Hello World!"))
+
+  LCD.MOVE(3,2)
+  LCD.STR(STRING("1 - 5 = "))
+
+  LCD.DEC (1-5)
+
+  waitms(1000) 
+  LCD.CLEAR()
+
+  LCD.STR(STRING("HEX(255) = 0x"))
+
+  LCD.HEX(255,2)
+
+  waitms(1000) 
+  LCD.CLEAR()
+
+  LCD.STR(STRING("DEC(170) = "))
+
+  LCD.MOVE(1,2)
+
+  LCD.BIN(170,8)
+
+  waitms(1000) 
+  LCD.CLEAR()
+
+  LCD.MOVE(3,1)
+  LCD.STR(STRING("END OF DEMO."))
+  LCD.MOVE(4,2)
+  LCD.STR(STRING("HAVE FUN !"))
+
+  repeat

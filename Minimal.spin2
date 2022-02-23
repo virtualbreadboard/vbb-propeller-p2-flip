@@ -1,0 +1,9 @@
+var
+  toggle
+
+PUB main()           'first PUB method executes
+ 
+  REPEAT
+    PINWRITE(0, toggle)    'write a random pattern to P63..P56
+    WAITMS(100)                   'wait 1/10th of a second, loop
+    toggle:=toggle ^ 1

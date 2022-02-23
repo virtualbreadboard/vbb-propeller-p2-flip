@@ -1,0 +1,204 @@
+'' =================================================================================================
+''   Credits:
+''   File....... 02_jm_sbus_serial_in.spin2
+''   Purpose....
+''   Author..... Jon "JonnyMac" McPhalen
+''               Copyright (c) 2021 Jon McPhalen
+''               -- see below for terms of use
+''   E-mail..... jon.mcphalen@gmail.com
+''   Started....
+''   Updated.... 12 MAY 2021
+''
+''   {$P2}
+''
+'' =================================================================================================
+
+
+con { timing }
+
+  CLK_FREQ = 200_000_000                                        ' system freq as a constant
+  MS_001   = CLK_FREQ / 1_000                                   ' ticks in 1ms
+  US_001   = CLK_FREQ / 1_000_000                               ' ticks in 1us
+ 
+
+con { terminal }
+
+  BR_TERM  = 230_400                                            ' terminal baud rate
+
+  #0, T_PST, T_ANSI                                             ' terminal types
+
+  T_TYPE = T_PST
+
+
+con { fixed io pins }
+
+  RX1      = 63  { I }                                          ' programming / debug
+  TX1      = 62  { O }
+
+  SF_CS    = 61  { O }                                          ' serial flash
+  SF_SCK   = 60  { O }
+  SF_SDO   = 59  { O }
+  SF_SDI   = 58  { I }
+
+  SD_SCK   = 61  { O }                                          ' sd card
+  SD_CS    = 60  { O }
+  SD_SDO   = 59  { O }
+  SD_SDI   = 58  { I }
+
+  LED2     = 57  { O }                                          ' Eval and Edge LEDs
+  LED1     = 56  { O }
+
+
+con { app io pins }
+
+  SBUS_RX  = 1  { I }                                          ' S.BUS serial input
+
+
+con
+
+  #true,  ON, OFF
+  #false, NO, YES
+
+
+obj
+
+' main                                                          ' * master Spin cog
+  term : "../Library/jm_fullduplexserial"                                  ' * serial IO for terminal
+  ansi : "../Library/jm_ansi"                                              '   ANSI terminal control sequences
+
+' * uses cog when loaded
+
+
+var
+
+  byte  frame[25]
+  word  channel[18]
+
+pub main() | t, i
+
+  setup()
+
+  wait_for_terminal(true)
+ 
+  term.str(string("Start"))
+ 
+  waitms(100)
+
+  t := getct()
+  repeat
+    if (receive_sbus(SBUS_RX, @frame))                          ' get s.bus frame
+      decode_sbus(@frame, @channel)                             ' convert to channel values
+      term.fstr2(string("Channel %2d  %4d                   \r"), 1, channel[0])
+     ' repeat i from 1 to 18                                     ' display channel values
+      '  term.fxhex(frame[i], 2)
+      '  term.tx(" ")
+    else
+      term.str(string("Lost frame"))
+    term.tx(13)
+    waitct(t += (100 * MS_001))
+
+
+con
+
+  SBUS_CFG  = P_ASYNC_RX | P_INVERT_IN                          ' inverted serial input
+  SBUS_BAUD = ((CLK_FREQ / 100_000) << 16) | (9-1)                ' 100K baud, 9 bits (8 data + parity)
+
+
+pub receive_sbus(p, p_sbus) : success | x, b, byte buffer[25]   ' blocks if no signal!!!
+
+  pinclear(p)                                                   ' force to tri-state mode
+ 
+  x := 0                                                        ' find inter-frame gap
+  repeat
+    if (pinread(p) == 0)
+      if (++x == 250)
+        quit
+    else
+      x := 0
+
+  pinstart(p, SBUS_CFG, SBUS_BAUD, 0)                           ' configure for S.BUS serial
+  
+  repeat x from 0 to 24                                         ' get s.bus frame
+    repeat until (pinread(p))                                   ' wait for byte
+    b := rdpin(p) >> 23                                         ' get data + parity, align lsb
+    if (ones(b) & 1)                                            ' if odd parity
+      return false                                              '  return error
+    else                                                        ' else
+    buffer[x] := b & $FF                                      '  save to buffer
+ 
+  if (buffer[0] <> $0F) || (buffer[24] <> $00)                  ' check header & footer bytes
+    return false
+
+  bytemove(p_sbus, @buffer, 25)                                 ' success; copy to destination
+
+  return true
+
+
+pub setup()
+
+'' Configure IO and objects for application
+  term.tstart(BR_TERM)                                          ' start terminal io
+
+
+pub wait_for_terminal(clear)
+
+'' Wait for terminal to be open and key pressed
+
+  term.rxflush()
+  term.rx()
+  if (clear)
+    clear_screen()
+
+
+pub clear_screen()
+
+  if (T_TYPE == T_PST)
+    term.tx(term.CLS)
+  else
+    term.str(ansi.hide_cursor())
+    term.str(ansi.home())
+    term.str(ansi.cls())
+
+pub decode_sbus(p_sbus, p_chans) | ch, work, bc, flags
+
+  p_sbus += 1                                                   ' point to data byte #1
+
+  longfill(@ch, 0, 3)                                           ' clear locals
+
+  repeat while (ch <= 15)                                       ' Ch 1-16 decoding
+    repeat while (bc < 11)                                      ' collect enough bits for channel
+      work |= (byte[p_sbus++] << bc)                            ' get byte, position, add to work
+      bc += 8                                                   ' bump bit count
+    word[p_chans][ch++] := work & $07FF                         ' extract and save channel
+    work >>= 11                                                 ' remove channel, re-align lsb
+    bc -= 11                                                    ' fix bit count
+
+  flags := byte[p_sbus]
+
+  word[p_chans][16] := (flags & %0001) ? $07FF : 0              ' convert ch17 bit
+  word[p_chans][17] := (flags & %0010) ? $07FF : 0              ' convert ch18 bit
+
+con { license }
+
+{{
+
+  Terms of Use: MIT License
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this
+  software and associated documentation files (the "Software"), to deal in the Software
+  without restriction, including without limitation the rights to use, copy, modify,
+  merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+  permit persons to whom the Software is furnished to do so, subject to the following
+  conditions:
+
+  The above copyright notice and this permission notice shall be included in all copies
+  or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+  INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+  PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+  HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+  CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+  OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+}}

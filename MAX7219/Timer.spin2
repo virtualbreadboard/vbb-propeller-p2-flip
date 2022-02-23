@@ -1,7 +1,7 @@
 '' =================================================================================================
 ''  
-''   File....... DisplayBanner   
-''   Purpose.... Demonstrates use of 8-digit, 7-segment to display a banner message.
+''   File....... Timer   
+''   Purpose.... Demonstrates use of 8-digit, 7-segment to display time in milliseconds.
 ''   Author..... James Caska
 ''   Credit..... based on jm_max7219_ez_demo.spin2 
 ''               Jon "JonnyMac" McPhalen
@@ -19,43 +19,64 @@ con { user io pins }
   CS2      = 4  { O }                                          ' max7219 connections
   SDO2     = 0 { O }
   SCK2     = 7  { O }
-
+  STARTPIN = 1
 
 obj
  
-  disp : "../Library/jm_ez_max7219/jm_max7219_ez"             '   max7219 interface
+  disp : "../jm_max7219_ez"             '   max7219 interface
 
-dat { pre-initialized }
-
-  Message       byte    32[8]                                   ' spaces for padding
-                byte    "HELLO EdGEY"  
-                byte    32[8]
-                byte    0
-
-pub main() | x
+var 
+  
+dat { pre-initialized } 
+ 
+pub main() | tNow, tLast, tStart, butNow, butPrev, recording
   
   setup()
+   
+  WAITMS(100)
  
+  recording:=false
+
   repeat
-    scroll(@Message, 200)
-  
+    butNow := PINREAD(STARTPIN)
+                                              '_____________          ___________
+    if( ( butNow == 0 ) && ( butPrev == 1) )  '             |________|            Button is normally low.
+      if(recording)
+        writeDecimalNumber( tNow - tStart , 3)  'Show final value
+        recording:=false
+      else
+        tStart := GETMS()
+        tLast := tStart
+        recording := true
+    
+    butPrev := butNow
 
-pub scroll(p_str, delay) | i, c, byte buf[8]
+    if( recording )
+      tNow := GETMS() 
+      if( tNow - tLast > 200 )
+        writeDecimalNumber( tNow - tStart , 3) 'Update every 200ms
+        tLast := tNow
+ 
+   
+pub writeDecimalNumber(count, decimalpos) | i
+    if( count < 0 )
+      count:= -count
+      disp.out(disp.DIG_0, 10) ' Minus
+      repeat i from 0 to 6
+        disp.out(8 - i,   ( i == decimalpos ? $80 : 0 ) + count // 10) 
+        count:=count / 10
 
-'' Scroll string at p_str through display
-'' -- motion is right to left
-'' -- string should be padded with spaces for clean entry/exit 
+    else
+      repeat i from 0 to 7
+        disp.out(8 - i,   ( i == decimalpos ? $80 : 0 ) + count // 10) 
+        count:=count / 10
 
-  repeat strsize(p_str)-8
-    repeat i from 7 to 0                                        ' left to right
-      c := byte[p_str][ i]                                     ' get character
-      buf[i] := disp.char_map(c)                                ' convert to segments
-    disp.write_buf(@buf, 8, 1)
-    waitms(delay)
-    p_str++
-  
-pub setup()
+pub setup() | i
   disp.start(SCK2, SDO2, CS2)                                   ' start max7219 connection
+  
+  repeat i from 0 to 7
+    disp.set_decode(i,1)  'Set all digit's to decode
+  
   disp.shutdown(false)
  
 con { license }

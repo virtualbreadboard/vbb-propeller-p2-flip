@@ -1,0 +1,86 @@
+'' =================================================================================================
+''  
+''   File....... Counter   
+''   Purpose.... Demonstrates use of 8-digit, 7-segment to display a counted numbers using decoding.
+''   Author..... James Caska
+''   Credit..... based on jm_max7219_ez_demo.spin2 
+''               Jon "JonnyMac" McPhalen
+''               Copyright (c) 2019 Jon McPhalen
+''               -- see below for terms of use
+''   E-mail..... jon@jonmcphalen.com
+''   Started....
+''   Updated.... 18 FEB 2022
+''
+'' =================================================================================================
+ 
+ 
+con { user io pins }
+
+  CS2      = 4  { O }                                          ' max7219 connections
+  SDO2     = 0 { O }
+  SCK2     = 7  { O }
+  PULSEPIN = 1
+
+obj
+ 
+  disp : "../Library/jm_max7219_ez"             '   max7219 interface
+
+var 
+ 
+dat { pre-initialized } 
+ 
+pub main() | x, pinNow, pinPrev, counter
+  
+  setup()
+  
+  counter:=0
+
+  writeNumber(counter)
+  
+  repeat
+    pinNow := PINREAD(PULSEPIN)
+                                               
+    if( ( pinNow == 0 ) && ( pinPrev == 1) )  'Count on falling edge
+      counter++
+      writeNumber(counter)
+ 
+    pinPrev := pinNow
+
+pub writeNumber(count) | i
+  repeat i from 0 to 7
+    disp.out(8 - i, count // 10)  'Set all digit's to decode
+    count:=count / 10
+ 
+  
+pub setup() | i
+  disp.start(SCK2, SDO2, CS2)                                   ' start max7219 connection
+  
+  repeat i from 0 to 7
+    disp.set_decode(i,1)  'Set all digit's to decode
+  
+  disp.shutdown(false)
+ 
+con { license }
+
+{{
+
+  Terms of Use: MIT License
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this
+  software and associated documentation files (the "Software"), to deal in the Software
+  without restriction, including without limitation the rights to use, copy, modify,
+  merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+  permit persons to whom the Software is furnished to do so, subject to the following
+  conditions:
+
+  The above copyright notice and this permission notice shall be included in all copies
+  or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+  INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+  PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+  HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+  CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+  OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+}}

@@ -1,0 +1,305 @@
+' ***** FIVE buttons on ONE pin
+'
+' This program demonstrates how to series-connect five buttons over one pin,
+' so that they can all be read in parallel by taking an ADC measurment and
+' searching a threshold table to determine their binary pattern. The pattern
+' gets debounced and reported every ~30k clocks.
+'
+' Compile with DEBUG to run this program.
+'
+CON
+
+  _clkfreq	= 100_000_000	'clock frequency
+
+  _pin		= 32+7*3+2	'ADC pin, connects to the rp-r5 junction
+
+  rp		= 2_200.0	'pull-up resistor to VIO (local 3.3V)
+  r5		= 1_200.0	'1st button parallel resistor, should be approximately rp
+  r4		=   600.0	'2nd button parallel resistor, should be approximately r1 * 2
+  r3		=   300.0	'3rd button parallel resistor, should be approximately r2 * 2
+  r2		=   150.0	'4th button parallel resistor, should be approximately r3 * 2
+  r1		=    75.0	'5th button parallel resistor, should be approximately r4 * 2, connects to GND
+
+  scale = 3300.0
+
+  'calculate r1..r5 series resistance sums per button combination
+  r00000 = 1.0 * r5 + 1.0 * r4 + 1.0 * r3 + 1.0 * r2 + 1.0 * r1
+  r00001 = 1.0 * r5 + 1.0 * r4 + 1.0 * r3 + 1.0 * r2 + 0.0 * r1
+  r00010 = 1.0 * r5 + 1.0 * r4 + 1.0 * r3 + 0.0 * r2 + 1.0 * r1
+  r00011 = 1.0 * r5 + 1.0 * r4 + 1.0 * r3 + 0.0 * r2 + 0.0 * r1
+  r00100 = 1.0 * r5 + 1.0 * r4 + 0.0 * r3 + 1.0 * r2 + 1.0 * r1
+  r00101 = 1.0 * r5 + 1.0 * r4 + 0.0 * r3 + 1.0 * r2 + 0.0 * r1
+  r00110 = 1.0 * r5 + 1.0 * r4 + 0.0 * r3 + 0.0 * r2 + 1.0 * r1
+  r00111 = 1.0 * r5 + 1.0 * r4 + 0.0 * r3 + 0.0 * r2 + 0.0 * r1
+  r01000 = 1.0 * r5 + 0.0 * r4 + 1.0 * r3 + 1.0 * r2 + 1.0 * r1
+  r01001 = 1.0 * r5 + 0.0 * r4 + 1.0 * r3 + 1.0 * r2 + 0.0 * r1
+  r01010 = 1.0 * r5 + 0.0 * r4 + 1.0 * r3 + 0.0 * r2 + 1.0 * r1
+  r01011 = 1.0 * r5 + 0.0 * r4 + 1.0 * r3 + 0.0 * r2 + 0.0 * r1
+  r01100 = 1.0 * r5 + 0.0 * r4 + 0.0 * r3 + 1.0 * r2 + 1.0 * r1
+  r01101 = 1.0 * r5 + 0.0 * r4 + 0.0 * r3 + 1.0 * r2 + 0.0 * r1
+  r01110 = 1.0 * r5 + 0.0 * r4 + 0.0 * r3 + 0.0 * r2 + 1.0 * r1
+  r01111 = 1.0 * r5 + 0.0 * r4 + 0.0 * r3 + 0.0 * r2 + 0.0 * r1
+  r10000 = 0.0 * r5 + 1.0 * r4 + 1.0 * r3 + 1.0 * r2 + 1.0 * r1
+  r10001 = 0.0 * r5 + 1.0 * r4 + 1.0 * r3 + 1.0 * r2 + 0.0 * r1
+  r10010 = 0.0 * r5 + 1.0 * r4 + 1.0 * r3 + 0.0 * r2 + 1.0 * r1
+  r10011 = 0.0 * r5 + 1.0 * r4 + 1.0 * r3 + 0.0 * r2 + 0.0 * r1
+  r10100 = 0.0 * r5 + 1.0 * r4 + 0.0 * r3 + 1.0 * r2 + 1.0 * r1
+  r10101 = 0.0 * r5 + 1.0 * r4 + 0.0 * r3 + 1.0 * r2 + 0.0 * r1
+  r10110 = 0.0 * r5 + 1.0 * r4 + 0.0 * r3 + 0.0 * r2 + 1.0 * r1
+  r10111 = 0.0 * r5 + 1.0 * r4 + 0.0 * r3 + 0.0 * r2 + 0.0 * r1
+  r11000 = 0.0 * r5 + 0.0 * r4 + 1.0 * r3 + 1.0 * r2 + 1.0 * r1
+  r11001 = 0.0 * r5 + 0.0 * r4 + 1.0 * r3 + 1.0 * r2 + 0.0 * r1
+  r11010 = 0.0 * r5 + 0.0 * r4 + 1.0 * r3 + 0.0 * r2 + 1.0 * r1
+  r11011 = 0.0 * r5 + 0.0 * r4 + 1.0 * r3 + 0.0 * r2 + 0.0 * r1
+  r11100 = 0.0 * r5 + 0.0 * r4 + 0.0 * r3 + 1.0 * r2 + 1.0 * r1
+  r11101 = 0.0 * r5 + 0.0 * r4 + 0.0 * r3 + 1.0 * r2 + 0.0 * r1
+  r11110 = 0.0 * r5 + 0.0 * r4 + 0.0 * r3 + 0.0 * r2 + 1.0 * r1
+  r11111 = 0.0 * r5 + 0.0 * r4 + 0.0 * r3 + 0.0 * r2 + 0.0 * r1
+
+  'calculate ADC voltage readings per button combination
+  v00000 = round(scale * r00000 / (rp + r00000))
+  v00001 = round(scale * r00001 / (rp + r00001))
+  v00010 = round(scale * r00010 / (rp + r00010))
+  v00011 = round(scale * r00011 / (rp + r00011))
+  v00100 = round(scale * r00100 / (rp + r00100))
+  v00101 = round(scale * r00101 / (rp + r00101))
+  v00110 = round(scale * r00110 / (rp + r00110))
+  v00111 = round(scale * r00111 / (rp + r00111))
+  v01000 = round(scale * r01000 / (rp + r01000))
+  v01001 = round(scale * r01001 / (rp + r01001))
+  v01010 = round(scale * r01010 / (rp + r01010))
+  v01011 = round(scale * r01011 / (rp + r01011))
+  v01100 = round(scale * r01100 / (rp + r01100))
+  v01101 = round(scale * r01101 / (rp + r01101))
+  v01110 = round(scale * r01110 / (rp + r01110))
+  v01111 = round(scale * r01111 / (rp + r01111))
+  v10000 = round(scale * r10000 / (rp + r10000))
+  v10001 = round(scale * r10001 / (rp + r10001))
+  v10010 = round(scale * r10010 / (rp + r10010))
+  v10011 = round(scale * r10011 / (rp + r10011))
+  v10100 = round(scale * r10100 / (rp + r10100))
+  v10101 = round(scale * r10101 / (rp + r10101))
+  v10110 = round(scale * r10110 / (rp + r10110))
+  v10111 = round(scale * r10111 / (rp + r10111))
+  v11000 = round(scale * r11000 / (rp + r11000))
+  v11001 = round(scale * r11001 / (rp + r11001))
+  v11010 = round(scale * r11010 / (rp + r11010))
+  v11011 = round(scale * r11011 / (rp + r11011))
+  v11100 = round(scale * r11100 / (rp + r11100))
+  v11101 = round(scale * r11101 / (rp + r11101))
+  v11110 = round(scale * r11110 / (rp + r11110))
+  v11111 = round(scale * r11111 / (rp + r11111))
+
+  'calculate ADC voltage readings per button combination
+  t00000 = (v00000 + v00001) / 2
+  t00001 = (v00001 + v00010) / 2
+  t00010 = (v00010 + v00011) / 2
+  t00011 = (v00011 + v00100) / 2
+  t00100 = (v00100 + v00101) / 2
+  t00101 = (v00101 + v00110) / 2
+  t00110 = (v00110 + v00111) / 2
+  t00111 = (v00111 + v01000) / 2
+  t01000 = (v01000 + v01001) / 2
+  t01001 = (v01001 + v01010) / 2
+  t01010 = (v01010 + v01011) / 2
+  t01011 = (v01011 + v01100) / 2
+  t01100 = (v01100 + v01101) / 2
+  t01101 = (v01101 + v01110) / 2
+  t01110 = (v01110 + v01111) / 2
+  t01111 = (v01111 + v10000) / 2
+  t10000 = (v10000 + v10001) / 2
+  t10001 = (v10001 + v10010) / 2
+  t10010 = (v10010 + v10011) / 2
+  t10011 = (v10011 + v10100) / 2
+  t10100 = (v10100 + v10101) / 2
+  t10101 = (v10101 + v10110) / 2
+  t10110 = (v10110 + v10111) / 2
+  t10111 = (v10111 + v11000) / 2
+  t11000 = (v11000 + v11001) / 2
+  t11001 = (v11001 + v11010) / 2
+  t11010 = (v11010 + v11011) / 2
+  t11011 = (v11011 + v11100) / 2
+  t11100 = (v11100 + v11101) / 2
+  t11101 = (v11101 + v11110) / 2
+  t11110 = (v11110 + v11111) / 2
+  t11111 = (v11111 + 0     ) / 2
+
+VAR stack[30], clocks, sample, states
+
+CON sch_x = 110
+    sch_y = 120
+    gra_x = 300
+    gra_y = 16
+
+PUB go() | i, x, y, m, n
+
+  cogspin(newcog, buttons(_pin), @stack)
+
+  debug(`plot p title 'Five Buttons on a Single Pin' size 430 600 backcolor white update)
+  debug(`p textsize 11 textstyle %00000011)
+
+  repeat
+    n := states
+    debug(`p clear)
+    repeat i from 0 to 30
+      x := gra_x
+      y := gra_y + thresholds[i] / 3
+      debug(`p blue set `(x,y) line `(360,y) 1)
+    debug(`p line 360 `(gra_y + thresholds[0]/3) 1)
+    debug(`p set 375 300 blue text 12 %11 -90 '31 Thresholds')
+    repeat i from 0 to 31
+      x := gra_x
+      y := gra_y + voltages[i] / 3
+      if i == n
+        debug(`p red linesize 5)
+      else
+        debug(`p grey linesize 3)
+      debug(`p set `(x,y) line `(x+30,y))
+      debug(`p set `(x-8,y) grey text 10 %00110011 '`(voltages[i]) mV')
+    debug(`p linesize 1 grey)
+    repeat i from 0 to 5
+      resistor(sch_x, sch_y+i*70, resistors[i])
+      debug(`p circle 5)
+    debug(`p line `(sch_x+45,sch_y+5*70) red obox 35 20 5 5 white text 'P`(_pin)' grey)
+    ground(sch_x,sch_y)
+    power(sch_x,sch_y+420,string("3.3 V"))
+    repeat i from 0 to 4
+      switch(sch_x,sch_y+35+i*70,n >> i & 1)
+    debug(`p set `(sch_x,sch_y-60) blue text 'clocks: `(clocks))
+    debug(`p set `(sch_x,sch_y-80) text 'sample: `(sample))
+    debug(`p set `(sch_x,sch_y-100) text 'states: `ubin_byte_(n))
+    debug(`p update `dly(20))
+
+PRI resistor(x, y, r)
+
+  debug(`p set `(x+20,y+35) grey text 11 %00100011 '`(r)')
+  debug(`p set `(x,y+70) line `(x,y+53) line `(x+10,y+50) line `(x-10,y+44) line `(x+10,y+38) line `(x-10,y+32) line `(x+10,y+26) line `(x-10,y+20) line `(x,y+17) line `(x,y))
+
+PRI power(x, y, s)
+
+  debug(`p set `(x,y) line `(x,y+20) set `(x-20,y+20) line `(x+20,y+20) set `(x,y+35) grey text '`zstr_(s)'))
+
+PRI ground(x, y)
+
+  debug(`p set `(x,y) line `(x,y-20) line `(x+20,y-20) line `(x,y-40) line `(x-20,y-20) line `(x,y-20))
+
+PRI switch(x, y, s)
+
+  debug(`p set `(x,y+35) line `(x-30,y+35) line `(x-30,y+15) circle 5)
+  debug(`p set `(x,y-35) line `(x-30,y-35) line `(x-30,y-15) circle 5)
+  debug(`p set `(x - (s ? 35 : 50), y) box 5 39)
+
+
+PUB buttons(pin_)
+
+  pr0 := pin_
+  regexec(@adcpgm)
+  repeat
+    clocks := reg[clocks_]
+    sample := reg[sample_]
+    states := reg[states_]
+
+DAT
+
+voltages	word	v00000,v00001,v00010,v00011,v00100,v00101,v00110,v00111
+		word	v01000,v01001,v01010,v01011,v01100,v01101,v01110,v01111
+		word	v10000,v10001,v10010,v10011,v10100,v10101,v10110,v10111
+		word	v11000,v11001,v11010,v11011,v11100,v11101,v11110,v11111
+
+resistors	word	round(r1),round(r2),round(r3),round(r4),round(r5),round(rp)
+
+adcpgm		word	0, adc_end
+		org	0
+'
+'
+' ADC program setup
+'
+adc_start	mov	pin,pr0			'get button pin
+
+		fltl	pin			'set pin to ADC mode + count highs
+		wrpin	adc_gio,pin
+		wxpin	clocks_,pin
+		wypin	#0,pin
+		drvl	pin
+
+		mov	ijmp3,#adc_isr		'set interrupt jump
+
+		mov	a,pin			'set ADC pin IN-rise event
+		or	a,#%001<<6
+		setse1	a
+
+	_ret_	setint3	#event_se1		'enable interrupt on event
+'
+'
+' ADC interrupt service routine - runs in background
+'
+adc_isr		akpin	pin			'let ADC adjust before GIO measurement
+		resi3
+
+		rdpin	lev_gio,pin		'read GIO measurement
+		wrpin	adc_pin,pin		'connect ADC to pin
+		mov	a,#%10000		'search button states by threshold
+		mov	b,#%11111
+.search		xor	b,a
+		altgw	b,#thresholds
+		getword	c
+		cmp	c,sample_	wc
+	if_nc	xor	b,a
+		shr	a,#1		wc
+	if_nc	jmp	#.search
+		resi3				'b=buttons for debounce
+
+		akpin	pin			'let ADC adjust before pin measurement
+		resi3
+
+		rdpin	lev_pin,pin		'read pin measurement
+		wrpin	adc_vio,pin		'connect ADC to VIO
+		mov	a,filter		'if buttons same for five readings, update states_
+		rolbyte	filter,b,#0
+		cmp	a,filter	wz
+	if_z	mov	states_,b
+		resi3
+
+		akpin	pin			'let ADC adjust before VIO measurement
+		resi3
+
+		rdpin	lev_vio,pin		'read VIO measurement
+		wrpin	adc_gio,pin		'connect ADC to GIO
+		sub	lev_vio,lev_gio		'tune measurement period so that
+		cmp	lev_vio,target	wcz	'VIO - GIO = target count
+	if_ne	sumnc	clocks_,#1
+	if_ne	wxpin	clocks_,pin
+		sub	lev_pin,lev_gio		'get pin sample
+		mov	sample_,lev_pin
+		mov	ijmp3,#adc_isr		'loop to start on next interrupt
+		reti3
+'
+'
+' Defined data
+'
+target		long	round(scale)
+clocks_		long	round(scale * 1.5)
+
+adc_gio		long	p_adc_gio | p_count_highs | %00_00000_0
+adc_pin		long	p_adc_1x  | p_count_highs | %00_00000_0
+adc_vio		long	p_adc_vio | p_count_highs | %00_00000_0
+
+thresholds	word	t00000,t00001,t00010,t00011,t00100,t00101,t00110,t00111
+		word	t01000,t01001,t01010,t01011,t01100,t01101,t01110,t01111
+		word	t10000,t10001,t10010,t10011,t10100,t10101,t10110,t10111
+		word	t11000,t11001,t11010,t11011,t11100,t11101,t11110,t11111
+adc_end
+'
+'
+' Undefined data
+'
+a		res	1
+b		res	1
+c		res	1
+pin		res	1
+lev_gio		res	1
+lev_pin		res	1
+lev_vio		res	1
+filter		res	1
+sample_		res	1
+states_		res	1

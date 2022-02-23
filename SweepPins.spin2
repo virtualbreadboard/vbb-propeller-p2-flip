@@ -1,0 +1,33 @@
+con { timing }
+  PINCOUNT = 8
+
+VAR
+  long _writePos
+
+  long _delay
+  long _pin
+  
+pub BlinkLeds()
+
+    _delay := 10000000
+ 
+     SweepPins()
+  
+PUB SweepPins()
+
+    _pin:=0
+    repeat 30
+      dira[_pin] := 1
+      _pin := _pin + 1
+
+    repeat
+      _pin:=0
+      repeat 30
+        outa[_pin] := 1
+        waitcnt(_delay + cnt)
+        _pin:=_pin+1
+      _pin:=0
+      repeat 30
+        outa[_pin] := 0
+        waitcnt(_delay + cnt)
+        _pin:=_pin+1

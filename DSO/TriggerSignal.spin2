@@ -1,0 +1,29 @@
+var
+  toggle
+
+PUB main() | t , w          'first PUB method executes
+ 
+  
+
+  REPEAT
+      PINWRITE(0, 0)    
+      PINWRITE(1, 0)   
+      WAITUS(100)
+      PINWRITE(0, 1)  'Trigger pulse
+      WAITUS(20)
+      PINWRITE(0, 0)   
+      WAITUS(20)
+      repeat t from 5 to 20
+         
+        PINWRITE(1, 1)    
+
+        WAITUS(t)
+   
+        PINWRITE(1, 0)    
+
+        WAITUS(t)
+
+        
+
+
+     

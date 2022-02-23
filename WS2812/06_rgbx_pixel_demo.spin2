@@ -1,0 +1,222 @@
+'' =================================================================================================
+''
+''   File....... 0z_rgbx_pixel_demo.spin2
+''   Purpose.... Smart pixel control demo
+''   Author..... Jon "JonnyMac" McPhalen
+''               Copyright (c) 2014-2020 Jon McPhalen
+''               -- see below for terms of use
+''   E-mail..... jon.mcphalen@gmail.com
+''   Started....
+''   Updated.... 23 DEC 2020
+''
+'' =================================================================================================
+
+
+con { timing }
+
+  CLK_FREQ = 200_000_000                                        ' system freq as a constant
+  MS_001   = CLK_FREQ / 1_000                                   ' ticks in 1ms
+  US_001   = CLK_FREQ / 1_000_000                               ' ticks in 1us
+
+  BR_TERM  = 230_400                                            ' terminal baud rate
+
+  _clkfreq = CLK_FREQ                                           ' set system clock
+
+
+con { fixed io pins }
+
+  RX1     = 63  { I }                                           ' programming / debug
+  TX1     = 62  { O }
+
+  SF_CS   = 61  { O }                                           ' serial flash
+  SF_SCK  = 60  { O }
+  SF_SDO  = 59  { O }
+  SF_SDI  = 58  { I }
+
+  SD_SCK  = 61  { O }                                           ' sd card
+  SD_CS   = 60  { O }
+  SD_SDI  = 59  { O }
+  SD_SDO  = 58  { I }
+
+  LED2    = 57  { O }                                           ' Eval and Edge LEDs
+  LED1    = 56  { O }
+
+
+con { app io pins }
+
+  PIX_DAT = 48  { O }                                           ' pixels data pin
+
+
+con
+
+  #true,  ON, OFF
+  #false, NO, YES
+
+  ESC = 27                                                      ' Escape key
+
+
+con
+
+  N_PIXELS = 50                                                 ' 50 pixels on string
+  PIX_BITS = 24                                                 ' 24-bit (RGB) pixels
+
+
+obj
+
+' main                                                          ' * master Spin cog
+  prng  : "jm_prng"                                             '   random numbers
+  strip : "jm_rgbx_pixel"                                       ' * smart pixel driver
+  term  : "jm_fullduplexserial"                                 ' * serial IO for termina
+
+' * uses cog when loaded
+
+
+var
+
+  long  pixbuf[N_PIXELS]                                        ' pixel buffers
+
+
+dat
+
+  Colors        long
+'                          rr gg bb xx
+  DimRed        long      $0F_00_00_00
+  DimWhite      long      $06_06_06_00
+  DimGreen      long      $00_0F_00_00
+
+
+  Menu          byte      "------------------", 13
+                byte      " RGBx Pixels Demo ", 13
+                byte      "------------------", 13
+                byte      "[R] Red           ", 13
+                byte      "[W] White         ", 13
+                byte      "[G] Green         ", 13
+                byte      "[C] Christmas     ", 13
+                byte      "[?] Random        ", 13
+                byte      "[T] Twinkle       ", 13
+                byte      "[X] Lights out    ", 13
+                byte      0
+
+
+pub main() | k
+
+  setup()
+
+  wait_for_terminal(true)
+
+  term.str(@Menu)
+
+  repeat
+    k := term.rx()
+    case k
+      "r", "R" : strip.set_all(DimRed)
+      "w", "W" : strip.set_all(DimWhite)
+      "g", "G" : strip.set_all(DimGreen)
+      "c", "C" : christmas_colors()
+      "?"      : random_colors()
+      "t", "T" : twinkle()
+      "x", "X" : strip.set_all(OFF)
+
+  repeat
+    waitct(0)
+
+
+pub christmas_colors() | ofs, idx, ch
+
+  ofs := 0
+
+  repeat
+    idx := ofs                                                  ' start color group
+    repeat ch from 0 to N_PIXELS-1                              ' fill string
+      strip.set(ch, Colors[idx])                                ' get color
+      if (++idx == 3)                                           ' bump color index
+        idx := 0                                                '  wrap if needed
+    waitms(250)                                                 ' hold
+    if (++ofs == 3)                                             ' bump starting offset
+      ofs := 0                                                  '  wrap if needed
+    if (user_quit())
+      quit                                                      '  we're done
+
+
+pub random_colors() | last, ch, idx, k
+
+  last := -1                                                    ' allow any to start
+
+  repeat
+    repeat ch from 0 to N_PIXELS-1                              ' fill string
+      repeat
+        idx := prng.xrandomize(0, 2)                            ' randomize
+        if (idx <> last)                                        ' if new color
+          last := idx                                           ' save this one
+          quit
+      strip.set(ch, Colors[idx])                                '  and use it
+    waitms(100)                                                 ' hold
+    if (user_quit())
+      quit                                                      '  we're done
+
+
+pub twinkle() | ch, level, idx
+
+  repeat
+    repeat ch from 0 to N_PIXELS-1                              ' fill string
+      level := prng.randomize(%0_0011, %1_1111)                 ' randomize level
+      repeat idx from 3 to 1                                    ' copy to r, g, & b bytes
+        level.byte[idx] := level.byte[0]
+      strip.set(ch, level)                                      ' update channel
+    waitms(75)                                                  ' hold
+    if (user_quit())
+      quit                                                      '  we're done
+
+
+pub user_quit() : status
+
+  status := (term.rxcheck() == ESC) ? true : false
+
+
+pub setup()
+
+'' Configure IO and objects for application
+
+  strip.start_2811(@pixbuf, N_PIXELS, PIX_DAT, 5)               ' start pixel driver for WS2811 *
+
+  term.tstart(BR_TERM)                                          ' start terminal io *
+
+
+pub wait_for_terminal(clear)
+
+'' Wait for terminal to be open and key pressed
+'  -- download to RAM with F10
+'  -- F12 to open PST
+'  -- Click [Enable] (if needed)
+'  -- Press Enter
+
+  term.rxflush()
+  term.rx()
+  if (clear)
+    term.tx(term.CLS)
+
+
+con { license }
+
+{{
+
+  Terms of Use: MIT License
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this
+  software and associated documentation files (the "Software"), to deal in the Software
+  without restriction, including without limitation the rights to use, copy, modify,
+  merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+  permit persons to whom the Software is furnished to do so, subject to the following
+  conditions:
+
+  The above copyright notice and this permission notice shall be included in all copies
+  or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+  INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+  PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+  HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+  CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+  OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+}}

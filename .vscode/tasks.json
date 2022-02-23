@@ -81,7 +81,40 @@
             "args": [
                 "-b230400",
                 "${config:topLevel}.binary",
-                "-t"
+                "-t",
+            ],
+            "osx": {
+                "command": "loadp2.mac",
+            },
+            "windows": {
+                "command": "loadp2.exe",
+            },
+            "linux": {
+                "command": "loadp2",
+                "args": [
+                    "-b230400",
+                    "${config:topLevel}.binary",
+                    "-t",
+                    "-p/dev/ttyUSB0"
+                ],
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "new",
+                "focus": true
+            },
+            "dependsOn": [
+                "compileTopP2"
+            ]
+        },
+        {
+            "label": "flashP2",
+            "type": "shell",
+            "args": [
+                "-b230400",
+                "@0=./board/P2ES_flashloader.bin,@8000+${config:topLevel}.binary",
+                "-t",
+                "-k"
             ],
             "osx": {
                 "command": "loadp2.mac",

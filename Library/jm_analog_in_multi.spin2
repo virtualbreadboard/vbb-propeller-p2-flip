@@ -1,0 +1,170 @@
+'' =================================================================================================
+''
+''   File....... jm_analog_in_multi.spin2
+''   Purpose.... Simple P2 analog input using smart pins, 0..3.3v -- up to 32 pins
+''   Author..... Jon "JonnyMac" McPhalen
+''               Copyright (c) 2020-2021 Jon McPhalen
+''               -- see below for terms of use
+''   E-mail..... jon.mcphalen@gmail.com
+''   Started....
+''   Updated.... 19 JAN 2021
+''
+'' =================================================================================================
+
+{{
+
+  This object uses P2 smart pins to read analog voltages from 0 to 3.3v. The ADCs are calibrated
+  at the start and may be re-calibrated at any time.
+
+  All channels must fit within the A pins group (0..31) or the B pins group (32..63)
+  -- using pins 58..63 is not recommended
+
+  The start() method uses the lo and hi parameters to define the user range of values that correspond
+  to 0 to 3.3v input. For example, if your application is measuring millivolts, use 0 and 3300 for
+  lo and hi.
+
+  Any channel user range may be modified with the set_range() method.
+
+}}
+
+
+con { fixed io pins }
+
+  RX1    = 63  { I }                                            ' programming / debug
+  TX1    = 62  { O }
+
+  SF_CS  = 61  { O }                                            ' serial flash
+  SF_SCK = 60  { O }
+  SF_SDO = 59  { O }
+  SF_SDI = 58  { I }
+
+
+con
+
+  MAX_CH = 32                                                   ' 32 is absolute maximum
+
+
+var
+
+  long  ap0                                                     ' analog input channel 0 pin
+  long  nch                                                     ' number of channels
+  long  apg                                                     ' analog pins group
+  long  urlo[32]                                                ' scaled user range, low
+  long  urhi[32]                                                ' scaled user range, high
+  long  callo[32]                                               ' calibration, ground
+  long  calhi[32]                                               ' calibration, vio
+
+
+pub null()
+
+'' This is not a top-level object
+
+
+pub start(base, count, lo, hi) : result | last
+
+'' Setup pin for analog input on count pins
+'' -- base  is first pin of group
+'' -- count is number of (contiguous) analog input pins
+'' -- lo and hi define user range for the ADC inputs
+''    * scaled from ground to Vio (3.3v)
+''    * lo corresponds to 0.0v input, hi corresponds to 3.3v input
+
+  if ((base < 0) || (base > 63))                                ' validate base pin
+    return false
+
+  if ((count < 1) || (count > MAX_CH))                          ' validate channel count
+    return false
+
+  last := base + count - 1                                      ' last ch pin of group
+
+  if ((base < 32) && (last > 31))
+    return false                                                ' outa boundary error
+  elseif (base < 64) && (last > 63)
+    return false                                                ' outb boundary error
+
+  ap0, nch := base, count                                       ' save 1st channel and count
+
+  apg := ap0 addpins (nch-1)                                    ' create group
+
+  longfill(@urlo, lo, count)                                    ' set initial range
+  longfill(@urhi, hi, count)
+
+  calibrate()                                                   ' calibrate analog input pin
+
+  return true
+
+
+pub calibrate() | ch
+
+'' Calibrate analog input pin for 0 to 3.3v input
+'' -- 12 bits, using SINC2, 2048 samples
+
+  pinstart(apg, P_ADC | P_ADC_GIO, 12-1, 0)                     ' measure ground
+  waitct(getct() + (2048 << 2))                                 ' allow pin to stablize
+  repeat ch from 0 to nch-1
+    callo[ch] := rdpin(ap0+ch)                                  ' save ground calibration level
+
+  pinstart(apg, P_ADC | P_ADC_VIO, 12-1, 0)                     ' measure vio (3.3v)
+  waitct(getct() + (2048 << 2))
+  repeat ch from 0 to nch-1
+    calhi[ch] := rdpin(ap0+ch)                                  ' save 3.3v calibration level
+
+  pinstart(apg, P_ADC | P_ADC_1X,  12-1, 0)                     ' set to pins, 1x scale
+  waitct(getct() + (2048 << 2))
+
+
+pub set_range(ch, lo, hi)
+
+'' Reset user range for specific channel
+'' -- lo corresponds to 0.0v input
+'' -- hi corresponds to 3.3v input
+
+  if ((ch >= 0) && (ch < nch))
+    urlo[ch] := lo
+    urhi[ch] := hi
+
+
+pub read(ch) : result | clo, chi, ulo, uhi
+
+'' Read channel pin and scale to user range
+'' -- simple mx+b
+
+  if ((ch >= 0) && (ch < nch))
+    clo, chi := callo[ch], calhi[ch]                            ' get channel calibration
+    ulo, uhi := urlo[ch], urhi[ch]                              ' get channel user range
+    result := (raw(ch)-clo) * (uhi-ulo) / (chi-clo)             ' mx
+    result := ulo #> result + ulo <# uhi                        ' +b (constrain to user range)
+
+
+pub raw(ch) : result
+
+'' Read raw analog level from channel pin
+'' -- not scaled to user range
+
+  return ((ch >= 0) && (ch < nch)) ? rdpin(ap0+ch) : 0
+
+
+con { license }
+
+{{
+
+  Terms of Use: MIT License
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this
+  software and associated documentation files (the "Software"), to deal in the Software
+  without restriction, including without limitation the rights to use, copy, modify,
+  merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+  permit persons to whom the Software is furnished to do so, subject to the following
+  conditions:
+
+  The above copyright notice and this permission notice shall be included in all copies
+  or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+  INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+  PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+  HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+  CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+  OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+}}

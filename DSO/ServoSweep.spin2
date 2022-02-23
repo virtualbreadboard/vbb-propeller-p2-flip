@@ -1,0 +1,30 @@
+var
+  toggle
+
+PUB main() | t , w          'first PUB method executes
+ 
+  PINWRITE(0, 0)    
+  PINWRITE(1, 0)     
+
+  REPEAT
+    repeat t from 1000 to 2000 step 5
+      WAITMS(20)
+      
+      PINWRITE(0, 1)     
+      PINWRITE(1, 1)    
+
+      WAITUS(t)
+
+      PINWRITE(0, 0)     
+      PINWRITE(1, 0)    
+    
+    repeat t from 2000 to 1000 step 5
+      WAITMS(20)
+      
+      PINWRITE(0, 1)     
+      PINWRITE(1, 1)    
+
+      WAITUS(t)
+
+      PINWRITE(0, 0)     
+      PINWRITE(1, 0)  

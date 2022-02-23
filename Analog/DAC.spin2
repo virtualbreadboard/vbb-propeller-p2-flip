@@ -1,0 +1,95 @@
+'' =================================================================================================
+''   Credits:
+''   File....... 02_jm_sbus_serial_in.spin2
+''   Purpose....
+''   Author..... Jon "JonnyMac" McPhalen
+''               Copyright (c) 2021 Jon McPhalen
+''               -- see below for terms of use
+''   E-mail..... jon.mcphalen@gmail.com
+''   Started....
+''   Updated.... 12 MAY 2021
+''
+''   {$P2}
+''
+'' =================================================================================================
+
+
+con { timing }
+
+  CLK_FREQ = 200_000_000                                        ' system freq as a constant
+  MS_001   = CLK_FREQ / 1_000                                   ' ticks in 1ms
+  US_001   = CLK_FREQ / 1_000_000                               ' ticks in 1us
+ 
+
+con { terminal }
+
+  BR_TERM  = 230_400                                            ' terminal baud rate
+
+  #0, T_PST, T_ANSI                                             ' terminal types
+
+  T_TYPE = T_PST
+
+
+con { fixed io pins }
+
+  RX1      = 2  { I }                                          ' programming / debug
+  TX1      = 1  { O }
+ 
+  UV_CH0   = 19  { I }                                            ' wiper from 10k potiometer
+  CHANNELS = 1                                                   ' analog channels
+
+  V_LO =  0_00                                                  ' scaled range for volts
+  V_HI =  3_30
+
+  L_LO =   0_0                                                  ' scaled range for level
+  L_HI = 100_0
+
+
+obj
+
+' main                                                          ' * master Spin cog
+  term : "../Library/jm_fullduplexserial"                                  ' * serial IO for terminal
+  ain  : "../Library/jm_analog_in_multi"                                   '   analog inputs (SP)
+ 
+pub main() |  i
+
+  setup()
+  
+  REPEAT  
+    term.fstr1(string("%d \r\n"), ain.read(0))
+    waitms(100)
+ 
+pub setup()
+
+'' Configure IO and objects for application
+  term.start(-1, TX1, %0000, 9600)
+ 
+  ain.start(UV_CH0, CHANNELS, V_LO, V_HI)                         ' configure analog inputs
+
+  ain.set_range(2, L_LO, L_HI)                                  ' reconfigure ch2 range
+
+
+con { license }
+
+{{
+
+  Terms of Use: MIT License
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this
+  software and associated documentation files (the "Software"), to deal in the Software
+  without restriction, including without limitation the rights to use, copy, modify,
+  merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+  permit persons to whom the Software is furnished to do so, subject to the following
+  conditions:
+
+  The above copyright notice and this permission notice shall be included in all copies
+  or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+  INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+  PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+  HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+  CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+  OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+}}
